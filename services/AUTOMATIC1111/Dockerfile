@@ -23,18 +23,14 @@ ENV DEBIAN_FRONTEND=noninteractive PIP_PREFER_BINARY=1
 RUN --mount=type=cache,target=/var/cache/apt \
   apt-get update && \
   # we need those
-  apt-get install -y fonts-dejavu-core rsync git jq moreutils aria2 \
+  apt-get install -y wget git && \
   # extensions needs those
-  ffmpeg libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 libcairo2-dev
+  apt-get install -y libglib2.0-0 libgl1
+  # ffmpeg libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 libcairo2-dev
 
-RUN aria2c -x 5 --dir / --out xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64.whl 'https://github.com/AbdBarho/stable-diffusion-webui-docker/releases/download/6.0.0/xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64-pytorch201.whl' && \
-  pip install /xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64.whl
-
-RUN --mount=type=cache,target=/cache --mount=type=cache,target=/root/.cache/pip \
-  aria2c -x 5 --dir /cache --out torch-2.0.1-cp310-cp310-linux_x86_64.whl -c \
-  https://download.pytorch.org/whl/cu118/torch-2.0.1%2Bcu118-cp310-cp310-linux_x86_64.whl && \
-  pip install /cache/torch-2.0.1-cp310-cp310-linux_x86_64.whl torchvision --index-url https://download.pytorch.org/whl/cu118
-
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install xformers==0.0.20
+# torch will be co-installed with xformers
 
 
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -63,8 +59,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # instead, update the repo state in a later step
 
 # TODO: either remove if fixed in A1111 (unlikely) or move to the top with other apt stuff
-RUN apt-get -y install libgoogle-perftools-dev && apt-get clean
-ENV LD_PRELOAD=libtcmalloc.so
+# RUN apt-get -y install libgoogle-perftools-dev && apt-get clean
+# ENV LD_PRELOAD=libtcmalloc.so
 
 ARG SHA=20ae71faa8ef035c31aa3a410b707d792c8203a3
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -73,18 +69,16 @@ RUN --mount=type=cache,target=/root/.cache/pip \
   git reset --hard ${SHA} && \
   pip install -r requirements_versions.txt
 
-COPY . /docker
 
-RUN \
-  python3 /docker/info.py ${ROOT}/modules/ui.py && \
-  mv ${ROOT}/style.css ${ROOT}/user.css && \
-  # one of the ugliest hacks I ever wrote \
-  sed -i 's/in_app_dir = .*/in_app_dir = True/g' /usr/local/lib/python3.10/site-packages/gradio/routes.py && \
-  git config --global --add safe.directory '*'
+
+# stage of dowload params in .cache dir
+RUN mkdir -p /root/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots && \
+  GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/openai/clip-vit-large-patch14 /root/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/8d052a0f05efbaefbc9e8786ba291cfdf93e5bff && \
+  wget https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin -O /root/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/8d052a0f05efbaefbc9e8786ba291cfdf93e5bff/pytorch_model.bin
+
 
 WORKDIR ${ROOT}
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV CLI_ARGS=""
 EXPOSE 7860
-ENTRYPOINT ["/docker/entrypoint.sh"]
-CMD python -u webui.py --listen --port 7860 ${CLI_ARGS}
+ENTRYPOINT python -u webui.py --listen --port 7860 ${CLI_ARGS}
