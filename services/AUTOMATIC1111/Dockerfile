@@ -16,11 +16,6 @@ RUN . /clone.sh k-diffusion https://github.com/crowsonkb/k-diffusion.git 5b3af03
 RUN . /clone.sh clip-interrogator https://github.com/pharmapsychotic/clip-interrogator 2486589f24165c8e3b303f84e9dbbea318df83e8
 
 
-FROM alpine:3.17 as xformers
-RUN apk add --no-cache aria2
-RUN aria2c -x 5 --dir / --out wheel.whl 'https://github.com/AbdBarho/stable-diffusion-webui-docker/releases/download/6.0.0/xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64-pytorch201.whl'
-
-
 FROM python:3.10.9-slim
 
 ENV DEBIAN_FRONTEND=noninteractive PIP_PREFER_BINARY=1
@@ -32,6 +27,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
   # extensions needs those
   ffmpeg libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 libcairo2-dev
 
+RUN aria2c -x 5 --dir / --out xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64.whl 'https://github.com/AbdBarho/stable-diffusion-webui-docker/releases/download/6.0.0/xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64-pytorch201.whl' && \
+  pip install /xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64.whl
 
 RUN --mount=type=cache,target=/cache --mount=type=cache,target=/root/.cache/pip \
   aria2c -x 5 --dir /cache --out torch-2.0.1-cp310-cp310-linux_x86_64.whl -c \
@@ -46,9 +43,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
   git reset --hard 20ae71faa8ef035c31aa3a410b707d792c8203a3 && \
   pip install -r requirements_versions.txt
 
-RUN --mount=type=cache,target=/root/.cache/pip  \
-  --mount=type=bind,from=xformers,source=/wheel.whl,target=/xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64.whl \
-  pip install /xformers-0.0.21.dev544-cp310-cp310-manylinux2014_x86_64.whl
+  
 
 ENV ROOT=/stable-diffusion-webui
 
