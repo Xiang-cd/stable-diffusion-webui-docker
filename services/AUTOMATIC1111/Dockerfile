@@ -22,10 +22,10 @@ ENV DEBIAN_FRONTEND=noninteractive PIP_PREFER_BINARY=1
 
 RUN --mount=type=cache,target=/var/cache/apt \
   apt-get update && \
-  # we need those
   apt-get install -y wget git && \
-  # extensions needs those
-  apt-get install -y libglib2.0-0 libgl1
+  # opencv needs
+  apt-get install -y libglib2.0-0 libgl1 && \
+  apt-get clean
   # ffmpeg libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 libcairo2-dev
 
 RUN --mount=type=cache,target=/root/.cache/pip \
